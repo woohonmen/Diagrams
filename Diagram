@@ -1,0 +1,83 @@
+graph TD
+    %% =======================
+    %% 1. Internal Bank Network (Staff & Core)
+    %% =======================
+    subgraph "Internal Bank Network"
+        Manager["<b>Onboarding Case Manager</b><br/>(AD Group Access)"]
+        
+        StaffPortal["<b>CN eSign Staff Portal</b><br/>1. Case Creation & Search<br/>2. Manual Cancel/Retrigger<br/>3. Summary Dashboard"]
+        
+        Storage[("<b>Core Storage (FileNet / DB)</b><br/>1. Bank-approved Forms<br/>2. Signed Documents<br/>3. Audit Reports")]
+        
+        GreenBook["<b>GreenBook System</b><br/>(Target Onboarding System)"]
+    end
+
+    %% =======================
+    %% 2. Notification Layer
+    %% =======================
+    subgraph "Notification Gateway"
+        ICCM[["<b>Message Engine (ICCM)</b><br/>Pub/Sub or API integration"]]
+    end
+
+    %% =======================
+    %% 3. External Customer Zone
+    %% =======================
+    subgraph "Customer Environment"
+        Customer["<b>Customer (Mobile Device)</b>"]
+        
+        CustPortal["<b>CN eSign Customer Portal</b><br/>1. Responsive Web UI<br/>2. User Guide & Help Contacts<br/>3. Document Viewer"]
+    end
+
+    %% =======================
+    %% 4. CFCA / 3rd Party Integration Layer
+    %% =======================
+    subgraph "Verification & Signature Services (CFCA/Gov)"
+        IDV["<b>ID&V Service</b><br/>Facial Recognition / ID Card<br/>(Max 10 Retries)"]
+        
+        SignService["<b>Digital Signature Service</b><br/>eSign Generation & OTP Verification"]
+    end
+
+    %% =======================
+    %% System Flows & Interactions
+    %% =======================
+    
+    %% Staff Actions
+    Manager -- "1. Upload Forms & Create Case" --> StaffPortal
+    StaffPortal -- "2. Store Draft Docs" --> Storage
+    StaffPortal -- "3. Trigger eSign Request<br/>(Auto/Manual >7 days)" --> ICCM
+    
+    %% Notification to Customer
+    ICCM -- "4. Send SMS/Email Link" --> Customer
+    
+    %% Customer Logon & IDV
+    Customer -- "5. Click Link & Open" --> CustPortal
+    CustPortal -- "6. Initiate Identity Check" --> IDV
+    IDV -- "7. Return Verification Result" --> CustPortal
+    
+    %% Customer eSign & OTP
+    CustPortal -- "8. View Form & Request Sign" --> SignService
+    SignService -- "9. Generate SMS OTP" --> ICCM
+    ICCM -- "10. Deliver OTP" --> Customer
+    Customer -- "11. Input OTP & Submit eSign" --> SignService
+    
+    %% Post-Signing Actions
+    SignService -- "12. Save Signed Doc & Audit" --> Storage
+    SignService -- "13. Trigger Completion Event" --> ICCM
+    
+    %% Staff Post-Actions
+    ICCM -- "14. Notify Case Completed" --> Manager
+    Manager -- "15. Search & Download Docs" --> StaffPortal
+    StaffPortal -- "Fetch Docs" --> Storage
+    Manager -- "16. Manually Link Case ID" --> GreenBook
+    
+    %% =======================
+    %% Styling
+    %% =======================
+    style Manager fill:#e6f7ff,stroke:#1890ff,stroke-width:2px
+    style Customer fill:#f6ffed,stroke:#52c41a,stroke-width:2px
+    style StaffPortal fill:#fffbe6,stroke:#faad14
+    style CustPortal fill:#fffbe6,stroke:#faad14
+    style Storage fill:#f9f0ff,stroke:#722ed1
+    style ICCM fill:#fff0f6,stroke:#eb2f96
+    style IDV fill:#e6ffea,stroke:#389e0d
+    style SignService fill:#e6ffea,stroke:#389e0d
