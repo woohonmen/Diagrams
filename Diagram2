@@ -1,0 +1,42 @@
+graph TD
+    classDef external fill:#f2f2f2,stroke:#333,stroke-width:2px;
+    classDef dc fill:#e6f3ff,stroke:#0066cc,stroke-width:2px,stroke-dasharray: 5 5;
+    classDef gw fill:#d9ead3,stroke:#38761d,stroke-width:1px;
+    
+    Ext["Adobe / DocuSign"]:::external
+
+    subgraph WGDC ["WGDC"]
+        direction TB
+        TK_W["Terminal Kong"]:::gw
+        EK_W["External Kong Gateway"]:::gw
+        Proxy_W["Internet System Proxy"]
+        App_W["Internal Applications"]
+        
+        TK_W --> EK_W
+        EK_W --> App_W
+        App_W -.-> Proxy_W
+    end
+
+    subgraph SYDC ["SYDC"]
+        direction TB
+        TK_S["Terminal Kong"]:::gw
+        EK_S["External Kong Gateway"]:::gw
+        Proxy_S["Internet System Proxy"]
+        App_S["Internal Applications"]
+        
+        TK_S --> EK_S
+        EK_S --> App_S
+        App_S -.-> Proxy_S
+    end
+
+    Ext <==>|Internet| TK_W
+    Ext <==>|Internet| TK_S
+    
+    Proxy_W -->|"Adobe to shared e-sign"| Ext
+    Proxy_S -->|"Adobe to shared e-sign"| Ext
+    
+    %% 注释与交互说明
+    TK_W -.->|"Wholesale E-sign interactions with Adobe"| Ext
+    TK_S -.->|"Wholesale E-sign interactions with Adobe"| Ext
+
+    class WGDC,SYDC dc;
