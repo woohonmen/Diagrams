@@ -1,0 +1,59 @@
+flowchart LR
+    classDef public fill:#f9cb9c,stroke:#b45f06,stroke-width:1px;
+    classDef compute fill:#cfe2f3,stroke:#0b5394,stroke-width:1px;
+    classDef data fill:#ead1dc,stroke:#741b47,stroke-width:1px;
+
+    subgraph External ["外部网络"]
+        GTM["Global Traffic Manager"]
+    end
+
+    subgraph Azure ["Azure Boundary"]
+        
+        subgraph WebAPI ["Web & API Tier"]
+            ER["Edge Routers"]
+            FW1["Firewall"]
+            LB1["Load Balancers"]
+            WAPI["Web and API Servers"]:::public
+            NS["Notification Servers (Email, Connect)"]
+            SDC["SandBoxed Document Conversion VM"]
+            
+            ER --> FW1 --> LB1 --> WAPI
+            WAPI --- NS
+            WAPI --- SDC
+        end
+
+        subgraph K8s ["Container Compute Tier"]
+            PLB["Public Cloud Load Balancers"]
+            K8S["Kubernetes"]:::compute
+            PrLB["Private Cloud Load Balancers"]
+            
+            PLB --> K8S --> PrLB
+        end
+
+        subgraph DataTier ["Data & Storage Tier"]
+            SW["Switch"]
+            FW2["Firewall"]
+            
+            BLOB_MT["BLOB Storage Middle Tier"]:::data
+            BLOB_DB[("BLOB Document and Data Storage")]:::data
+            OLTP[("Flash-based OLTP Database")]:::data
+            
+            CBS[("Cloud Blob Store")]:::data
+            AZ_DB[("Azure Database Servers")]:::data
+            COSMOS[("Cosmos DB")]:::data
+            AI["AI Services"]
+            
+            WAPI --> SW
+            SW --> BLOB_MT --> BLOB_DB
+            WAPI --> OLTP
+            
+            PrLB --> FW2
+            FW2 --> CBS
+            FW2 --> AZ_DB
+            FW2 --> COSMOS
+            FW2 --> AI
+        end
+    end
+
+    GTM -->|Internet| ER
+    GTM -->|Internet| PLB
