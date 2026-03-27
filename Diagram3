@@ -1,0 +1,120 @@
+graph LR
+    %% 定义样式
+    classDef external fill:#f2f2f2,stroke:#333,stroke-width:2px,stroke-dasharray: 5 5;
+    classDef traffic fill:#cfe2f3,stroke:#0b5394,stroke-width:1px;
+    classDef app fill:#d9ead3,stroke:#38761d,stroke-width:1px;
+    classDef worker fill:#fff2cc,stroke:#bf9000,stroke-width:1px;
+    classDef data fill:#ead1dc,stroke:#741b47,stroke-width:1px,rx:10,ry:10;
+    classDef secure fill:#f4cccc,stroke:#a61c00,stroke-width:2px,rx:5,ry:5;
+
+    %% 外部边界 (External Boundary)
+    subgraph External[External Boundary]
+        direction TB
+        Users(Internet Users<br/>Signers, Senders):::external
+        APIClients(API Clients<br/>Integrations e.g., CRM):::external
+    end
+
+    %% 全局流量管理层 (Global Traffic Management)
+    subgraph GlobalTraffic[Global Traffic Management Layer]
+        direction TB
+        GTM(Global Traffic Manager<br/>GSLB):::traffic
+        WAF(Global WAF / DDoS Protection):::traffic
+    end
+
+    %% 生产网络 (Production Network) - 高可用架构
+    subgraph ProductionNet[Production Network Boundary]
+        direction TB
+
+        %% 数据中心 1 (Data Center 1 - Active)
+        subgraph DC1[Data Center 1 - Active]
+            direction TB
+            LB1(External Load Balancer):::traffic
+            
+            subgraph AppLayer1[Internal Application Layer - Trusted]
+                direction TB
+                GW1(API Gateway & Auth Service<br/>SSO, OAuth 2.0):::app
+                
+                subgraph MsCluster1[Microservices Cluster]
+                    Web1[Web App Server]:::app
+                    Env1[Envelope Service<br/>Workflow]:::app
+                    Sign1[Signing Service<br/>PKI]:::app
+                    Temp1[Template Service]:::app
+                    Rep1[Reporting Service]:::app
+                end
+            end
+
+            subgraph WorkerLayer1[Asynchronous Processing - Worker Layer]
+                direction TB
+                MQ1(Message Queue<br/>e.g., Kafka / RabbitMQ):::worker
+                
+                subgraph Workers1[Background Workers Cluster]
+                    Conv1[Doc Conversion<br/>PDF]:::worker
+                    Notif1[Notification Service<br/>Email, Connect]:::worker
+                    Audit1[Audit Log Service]:::worker
+                end
+            end
+        end
+
+        %% 数据中心 2 (Data Center 2 - Standby/Active)
+        %% (为了简洁，这里简化显示，结构与DC1完全一致)
+        subgraph DC2[Data Center 2 - Failover/Active]
+            LB2(External Load Balancer):::traffic
+            App2[Redundant App Layer]:::app
+            Worker2[Redundant Worker Layer]:::worker
+        end
+    end
+
+    %% 安全数据持久化层 (Secured Data & Persistence Tier)
+    subgraph DataTier[Secured Data Tier - strictly separate]
+        direction TB
+        
+        subgraph DBCluster[Metadata DB Cluster]
+            MDB_P[(Primary Metadata DB<br/>PostgreSQL / SQL Server)]:::data
+            MDB_S[(Secondary Metadata DB)]:::data
+        end
+
+        subgraph BlobCluster[Document BLOB Store]
+            BLOB1[(BLOB Store - DC1<br/>Encrypted PDF)]:::data
+            BLOB2[(BLOB Store - DC2)]:::data
+        end
+
+        AuditDB[(Audit Log DB<br/>Immutable)]:::data
+        
+        HSM(HSM - Hardware Security Module<br/>Root Keys & Certificates):::secure
+    end
+
+    %% --- 连接关系与数据流 (numbered flows from image) ---
+
+    %% 1. 发送信封 & 2. 用户验证
+    Users -->|1. Send / 2. Auth| GTM
+    APIClients -->|1. Send / 2. Auth| GTM
+    GTM --> WAF
+    WAF --> LB1
+    WAF -.-> LB2
+    LB1 --> GW1
+    GW1 --> Web1
+    GW1 --> Env1
+
+    %% 3. 异步处理
+    Env1 -.->|3. Async Event| MQ1
+    MQ1 --> Conv1
+    MQ1 --> Notif1
+    MQ1 --> Audit1
+
+    %% 4. 签署动作
+    Users -->|4. Sign Action| Sign1
+    GW1 --> Sign1
+
+    %% 5. 数据存储 & PKI 签名 (Critical Links)
+    Sign1 ==>|5a. PKI Signing| HSM
+    Sign1 ==>|5b. Trans Metadata| MDB_P
+    Env1 ==>|5c. Store BLOB| BlobCluster
+    Audit1 ==>|5d. Commit Log| AuditDB
+
+    %% 高可用同步
+    MDB_P <-->|DB Replication| MDB_S
+    BLOB1 <-->|BLOB Replication| BLOB2
+    
+    %% 6. 异步通知
+    Notif1 -.->|6. Webhooks/Email| Users
+    Notif1 -.->|6. Connect| APIClients
